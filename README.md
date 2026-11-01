@@ -1,5 +1,9 @@
 # SleepGuard · 休眠阻止监视器
 
+[![Release](https://github.com/dameng324/SleepGuard/actions/workflows/release.yml/badge.svg)](https://github.com/dameng324/SleepGuard/actions/workflows/release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/dameng324/SleepGuard)](https://github.com/dameng324/SleepGuard/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 一个用 **Avalonia + [TKCode.Arc](https://github.com/AIDotNet/TKCode.Arc)** 写的 Windows 桌面小工具，用来：
 
 - **查看**当前系统里有哪些程序正在阻止系统休眠（显示器关闭、系统休眠、离开模式……）；
