@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "版本号（例如 1.0.0），仅手动触发时使用"
+        required: false
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.version }}" } else { "${{ github.ref_name }}" }
+          $ver = $tag.TrimStart('v', 'V')
+          if ($ver -notmatch '^\d+\.\d+\.\d+') {
+            throw "无法从 '$tag' 解析出 x.y.z 形式的版本号"
+          }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          "prerelease=$($ver.Contains('-'))" >> $env:GITHUB_OUTPUT
+          Write-Host "版本：$ver"
+
+      - name: Restore
+        run: dotnet restore SleepGuard.slnx
+
+      - name: Publish (self-contained win-x64)
+        run: >
+          dotnet publish src/SleepGuard/SleepGuard.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --no-restore
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:DebugType=none
+          -p:DebugSymbols=false
+          --output dist/publish
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "找不到 ISCC.exe" }
+          & $iscc "installer\SleepGuard.iss" "/DAppVersion=${{ steps.version.outputs.version }}"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup 编译失败：$LASTEXITCODE" }
+          Get-ChildItem dist\installer
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SleepGuard ${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          files: dist/installer/*.exe
+          generate_release_notes: true
+          prerelease: ${{ steps.version.outputs.prerelease == 'True' }}
+          fail_on_unmatched_files: true

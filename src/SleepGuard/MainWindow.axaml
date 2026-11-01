@@ -1,0 +1,309 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+        xmlns:lucide="https://github.com/AIDotNet/TKCode.Arc/lucide"
+        xmlns:vm="using:SleepGuard.ViewModels"
+        mc:Ignorable="d"
+        d:DesignWidth="1240" d:DesignHeight="860"
+        x:Class="SleepGuard.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="SleepGuard · 休眠阻止监视器"
+        Width="1240" Height="860"
+        MinWidth="1000" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Background="{arc:ArcDesignTokenResource Background}">
+
+    <Window.Resources>
+        <!-- 表格“类型”列：Arc 徽标 -->
+        <DataTemplate x:Key="KindCell" x:DataType="vm:BlockerRow">
+            <arc:Badge Content="{Binding KindLabel}" Tone="{Binding KindTone}" />
+        </DataTemplate>
+
+        <!-- 表格“操作”列：每行一个结束按钮 -->
+        <DataTemplate x:Key="ActionCell" x:DataType="vm:BlockerRow">
+            <arc:Button Content="{Binding ActionText}"
+                        Variant="Danger"
+                        Size="Small"
+                        IsEnabled="{Binding CanTerminate}"
+                        arc:Tooltip.Tip="{Binding Tooltip}"
+                        Click="OnKillRowClick" />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ═══ 顶栏 ═══ -->
+        <Border Grid.Row="0"
+                Padding="20,14"
+                Background="{arc:ArcDesignTokenResource Surface}"
+                BorderBrush="{arc:ArcDesignTokenResource Border}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Width="38" Height="38" CornerRadius="13"
+                            Background="{arc:ArcDesignTokenResource AccentSubtle}">
+                        <lucide:LucideIcon Kind="Moon"
+                                           Size="20"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{arc:ArcDesignTokenResource AccentStrong}" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="SleepGuard" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock FontSize="12"
+                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                   Text="休眠阻止监视器 · Windows" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <arc:Badge Content="{Binding ElevationText}" Tone="Success" IsVisible="{Binding IsElevated}" />
+                    <arc:Badge Content="需要管理员权限" Tone="Warning" IsVisible="{Binding NeedsElevation}" />
+                    <arc:Badge Content="演示数据" Tone="Info" IsVisible="{Binding IsDemo}" />
+                    <arc:Badge Content="{Binding AutoRefreshText}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="14"
+                            VerticalAlignment="Center">
+                    <arc:Switch Content="自动刷新" IsChecked="{Binding AutoRefresh, Mode=TwoWay}" />
+                    <arc:Button Content="刷新"
+                                Variant="Secondary"
+                                IsEnabled="{Binding !IsRefreshing}"
+                                Click="OnRefreshClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 主体 ═══ -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,340" ColumnSpacing="16" Margin="20,16">
+
+            <!-- 左：概览 + 阻止列表 -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*" RowSpacing="16">
+
+                <!-- 权限提示 -->
+                <Border Grid.Row="0"
+                        CornerRadius="16"
+                        Padding="16,12"
+                        Background="{arc:ArcDesignTokenResource WarningSubtle}"
+                        BorderBrush="{arc:ArcDesignTokenResource Warning}"
+                        BorderThickness="1"
+                        IsVisible="{Binding NeedsElevation}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="3" VerticalAlignment="Center">
+                            <TextBlock Text="需要管理员权限才能读取阻止列表"
+                                       FontSize="13"
+                                       FontWeight="SemiBold" />
+                            <TextBlock FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                       Text="powercfg /requests 与结束系统级进程都需要提升权限。点击右侧按钮以管理员身份重启本程序。" />
+                        </StackPanel>
+                        <arc:Button Grid.Column="1"
+                                    Content="以管理员身份重启"
+                                    Variant="Primary"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Click="OnElevateClick" />
+                    </Grid>
+                </Border>
+
+                <!-- 概览卡片 -->
+                <UniformGrid Grid.Row="1" Columns="3" ColumnSpacing="12">
+                    <arc:MetricCard Label="阻止项"
+                                    Value="{Binding BlockerCount}"
+                                    Context="powercfg /requests" />
+                    <arc:MetricCard Label="进程类请求"
+                                    Value="{Binding ProcessBlockerCount}"
+                                    Context="其余来自服务或驱动" />
+                    <arc:MetricCard Label="阻止类型"
+                                    Value="{Binding KindCount}"
+                                    Context="{Binding KindSummaryText}" />
+                </UniformGrid>
+
+                <!-- 阻止列表 -->
+                <Border Grid.Row="2"
+                        CornerRadius="20"
+                        Padding="16"
+                        Background="{arc:ArcDesignTokenResource Surface}"
+                        BorderBrush="{arc:ArcDesignTokenResource Border}"
+                        BorderThickness="1">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="10">
+
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="休眠阻止请求" FontSize="14" FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock FontSize="12"
+                                               VerticalAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                               Text="{Binding StatusMessage}" />
+                                    <arc:Badge Content="读取失败"
+                                               Tone="Danger"
+                                               IsVisible="{Binding HasError}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       FontSize="12"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                       Text="{Binding SelectedText}" />
+                            <arc:Button Grid.Column="2"
+                                        Content="结束所选"
+                                        Variant="Danger"
+                                        Size="Small"
+                                        IsEnabled="{Binding HasSelection}"
+                                        Click="OnKillSelectedClick" />
+                        </Grid>
+
+                        <arc:Table x:Name="BlockerTable"
+                                   Grid.Row="1"
+                                   IsSelectable="True"
+                                   ItemNameOne="条请求"
+                                   ItemNameOther="条请求"
+                                   SelectedNoun="项被选中"
+                                   SelectAllLabel="全选"
+                                   ClearSelectionLabel="清除选择"
+                                   Caption="休眠阻止请求"
+                                   EmptyMessage="{Binding EmptyHint}"
+                                   ItemsSource="{Binding Blockers}"
+                                   SelectedItems="{Binding SelectedBlockers, Mode=TwoWay}"
+                                   SelectionChanged="OnTableSelectionChanged" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- 右：我的阻止 + 诊断 -->
+            <ScrollViewer Grid.Column="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="16">
+
+                    <Border CornerRadius="20"
+                            Padding="18"
+                            Background="{arc:ArcDesignTokenResource Surface}"
+                            BorderBrush="{arc:ArcDesignTokenResource Border}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="14">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="我的休眠阻止" FontSize="14" FontWeight="SemiBold" />
+                                <TextBlock FontSize="12"
+                                           TextWrapping="Wrap"
+                                           Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                           Text="让 SleepGuard 代表你持有系统请求，随时可以释放。" />
+                            </StackPanel>
+
+                            <arc:Switch Content="阻止系统休眠"
+                                        IsChecked="{Binding IsPreventing, Mode=TwoWay}" />
+
+                            <arc:Switch Content="同时保持显示器常亮"
+                                        IsChecked="{Binding KeepDisplayOn, Mode=TwoWay}"
+                                        IsEnabled="{Binding IsPreventing}" />
+
+                            <TextBlock FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                       Text="{Binding PreventDescription}" />
+
+                            <arc:Select Label="保持时长"
+                                        IsEnabled="{Binding CanChangeDuration}"
+                                        SelectedValue="{Binding DurationKey, Mode=TwoWay}">
+                                <arc:SelectItem Content="一直保持" Value="forever" />
+                                <arc:SelectItem Content="30 分钟" Value="30" />
+                                <arc:SelectItem Content="1 小时" Value="60" />
+                                <arc:SelectItem Content="2 小时" Value="120" />
+                                <arc:SelectItem Content="4 小时" Value="240" />
+                            </arc:Select>
+
+                            <Border CornerRadius="14"
+                                    Padding="14,12"
+                                    Background="{arc:ArcDesignTokenResource SurfaceMuted}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="3">
+                                        <TextBlock FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding PreventStateText}" />
+                                        <TextBlock FontSize="12"
+                                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                                   Text="{Binding PreventElapsedText}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               VerticalAlignment="Center"
+                                               FontSize="12"
+                                               Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                               Text="{Binding PreventRemainingText}" />
+                                </Grid>
+                            </Border>
+
+                            <arc:Button Content="立即释放"
+                                        Variant="Secondary"
+                                        HorizontalAlignment="Stretch"
+                                        IsEnabled="{Binding IsPreventing}"
+                                        Click="OnReleaseClick" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border CornerRadius="20"
+                            Padding="18"
+                            Background="{arc:ArcDesignTokenResource Surface}"
+                            BorderBrush="{arc:ArcDesignTokenResource Border}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="诊断" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <arc:Switch Grid.Column="1"
+                                            Content="原始输出"
+                                            IsChecked="{Binding ShowRawOutput, Mode=TwoWay}" />
+                            </Grid>
+                            <TextBlock FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                                       Text="powercfg /requests 会列出持有 DISPLAY / SYSTEM / AWAYMODE / EXECUTION / PERFMON 请求的进程。" />
+                            <Border IsVisible="{Binding ShowRawOutput}"
+                                    CornerRadius="12"
+                                    Padding="10"
+                                    Background="{arc:ArcDesignTokenResource SurfaceMuted}">
+                                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock FontFamily="Consolas,Menlo,monospace"
+                                               FontSize="11"
+                                               TextWrapping="Wrap"
+                                               Text="{Binding RawOutput}" />
+                                </ScrollViewer>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ═══ 状态栏 ═══ -->
+        <Border Grid.Row="2"
+                Padding="20,9"
+                Background="{arc:ArcDesignTokenResource Surface}"
+                BorderBrush="{arc:ArcDesignTokenResource Border}"
+                BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                           Text="{Binding LastUpdatedLabel}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <arc:Badge Content="Arc UI" />
+                    <TextBlock FontSize="12"
+                               VerticalAlignment="Center"
+                               Foreground="{arc:ArcDesignTokenResource TextSecondary}"
+                               Text="数据来源 powercfg /requests" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>SleepGuard</RootNamespace>
+    <AssemblyName>SleepGuard</AssemblyName>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Arc 的字体、数字与日期格式化需要区域性数据，不能开启 InvariantGlobalization。 -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- 双击即请求管理员权限（powercfg /requests 与结束系统进程都需要它） -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+
+    <!-- 发布信息：CI 会用 -p:Version=x.y.z 覆盖 -->
+    <Version>1.0.0</Version>
+    <Product>SleepGuard</Product>
+    <AssemblyTitle>SleepGuard 休眠阻止监视器</AssemblyTitle>
+    <Description>查看并结束阻止系统休眠的程序，也可以主动阻止系统休眠。</Description>
+    <Authors>dameng324</Authors>
+    <Copyright>Copyright © 2026 dameng324</Copyright>
+    <RepositoryUrl>https://github.com/dameng324/SleepGuard</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+
+    <!-- Arc 风格控件库：https://github.com/AIDotNet/TKCode.Arc -->
+    <PackageReference Include="TKCode.Arc" Version="0.3.2-preview.2" />
+    <PackageReference Include="TKCode.Arc.Fonts" Version="0.3.2-preview.2" />
+    <PackageReference Include="TKCode.Arc.Icons.Lucide" Version="0.3.2-preview.2" />
+
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
