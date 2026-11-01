@@ -41,7 +41,7 @@ jobs:
           Write-Host "版本：$ver"
 
       - name: Restore
-        run: dotnet restore SleepGuard.slnx
+        run: dotnet restore SleepGuard.slnx --runtime win-x64
 
       - name: Publish (self-contained win-x64)
         run: >
